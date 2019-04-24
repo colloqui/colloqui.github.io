@@ -1,0 +1,138 @@
+#CAD EXPORT SCRIPT TO DXF
+#Written by Chaz Olloqui for CONGRUEX IT
+#Questions may be sent to colloqui@congruex.com
+
+
+#execfile("//CHCCLD01SDEV02/d$/GIS_team/CO/CAD Export Scripts/TESTdxfCreation.py")
+
+import ogr, os, osr, sys, psycopg2, datetime,subprocess
+
+date = str(datetime.date.today().strftime('%m%d%Y'))
+
+#These need to be populated before script runs.
+#POPULATE USING USER INPUT OR AUTO FROM CGIS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+schema = 'gpon'
+woid = '704292149'
+#woid = '704192050'
+
+
+#Map Service Dictionary
+#This needs to be input into a postgis table.
+mapService = {
+	
+	'gpon':{
+		'table':{
+				'lead_splitter':{'label':"'LABEL(f:Aerial,c:#FF0000,s:0.02pt,t:\"' || splitter_number || '\")'", 'pen':'PEN(c:#FF0000,w:3pt)'},
+				'serving_terminal':{'label':"'LABEL(f:Aerial,c:#FF0000,s:0.02pt,t:\"' || split_fiber_id || \'\n\' || terminal_address || \'\n\' || port_ids || \'\n\' || tail_length || '\")'", 'pen':'PEN(c:#FF0000)'},
+				'feeder_cable':{'label':"'LABEL(f:Aerial,c:#FF0000,s:0.02pt,t:\"' || fiber_id_1 || \'\n\' || fiber_id_2 || '\")'", 'pen':'PEN(c:#FF0000)'},
+				'distribution_cable':{'label':"'LABEL(f:Aerial,c:#FF0000,s:0.02pt,t:\"' || fiber_id_1 || \'\n\' || fiber_id_2 || '\")'", 'pen':'PEN(c:#FF0000,w:2px,p:"4px 5px")'}
+				}
+	
+			}
+		}
+
+
+#GPON ANNOTATION TEMPLATES
+
+#lead_splitter	
+#		[splitter_number]
+#	serving_terminal
+#		[split_fiber_id] & vbCrLf & [terminal_address] & vbCrLf &  [port_ids]  & vbCrLf & [tail_length]
+#	feeder_cable
+#		[fiber_id_1] & vbCrLf & [fiber_id_2]
+#	distribution_cable
+#		[fiber_id_1] & vbCrLf & [fiber_id_2] 
+
+filePath = "C:\Users\colloqui\Desktop\GIS Tasks\TEST PostGIS to DXF\\Windstream {} CAD Export {}.dxf".format(woid,date)
+
+
+
+def postgis2cad(cur):
+	ds = ogr.GetDriverByName('DXF').CreateDataSource(filePath)
+	lyr = ds.CreateLayer('entities')
+	
+	#for table in schema:
+	for tbl in mapService[schema]['table']:
+		print('\nRunning Export for Table: ' + tbl)
+		newFeature = ogr.Feature(feature_def = lyr.GetLayerDefn())
+		newFeature.SetField(lyr.GetLayerDefn().GetFieldIndex("layer"), str(tbl))
+		
+		#geomSQL = "select st_astext(wkb_geometry) from {}.{} where isdeleted = 'f' and job_number ilike '%{}%'".format(schema,tbl,woid)
+		#geomMog = cur.mogrify(geomSQL)
+		
+	
+		#cur.execute(geomSQL)
+		#wkb = cur.fetchall()
+		
+		
+			#newFeature.SetGeometryDirectly(a)
+			#lyr.CreateFeature(newFeature)
+			
+		#for w in wkb:
+		#	w = str(w)[2:-3]
+		#	print w
+		#	newFeature.SetGeometryDirectly(ogr.CreateGeometryFromWkt(w))
+		#	lyr.CreateFeature(newFeature)
+			
+			
+			
+		
+		newLabel = ogr.Feature(feature_def = lyr.GetLayerDefn())
+		newLabel.SetField(lyr.GetLayerDefn().GetFieldIndex("layer"), str(tbl)+'_anno')
+		
+		featLabelStr = mapService[schema]['table'][tbl]['label']
+		featPenStr = mapService[schema]['table'][tbl]['pen']
+		print featPenStr
+
+		#labelSQL = "select st_astext(wkb_geometry),{} as STYLE from {}.{} where isdeleted = 'f' and job_number ilike '%{}%'".format(featStyleStr,schema,tbl,woid)
+		labelSQL = "SELECT st_astext(wkb_geometry), {} as STYLE, CASE WHEN g.type = 'POINT' THEN st_astext(t.wkb_geometry) WHEN g.type = 'MULTILINESTRING' THEN st_astext(st_line_Interpolate_Point(st_linemerge(t.wkb_geometry),.5)) ELSE NULL END AS wkb_geometry FROM {}.{} t join information_schema.tables i on t.layername = i.table_name join geometry_columns g on g.f_table_name = i.table_name and g.f_table_schema = i.table_schema where isdeleted = 'f' and table_schema = '{}' and job_number ilike '%{}%'".format(featLabelStr,schema,tbl,schema,woid)
+		labelMog = cur.mogrify(labelSQL)
+		print labelMog
+		
+		cur.execute(labelSQL)
+		anno = cur.fetchall()
+		
+		print "\nPrinting ANNO:\n" + str(anno)
+		
+		
+		for a in anno:
+		#a[0] is GEOMETRY
+		#a[1] is STYLE
+		#a[2] is POINT GEOM if MULTILINESTRING
+		
+			#FEATURE LAYER (GEOMETRY)
+			print ("Creating GEOM Feature for " + a[0])
+			newFeature.SetGeometryDirectly(ogr.CreateGeometryFromWkt(a[0]))
+			newFeature.SetStyleString(featPenStr)
+			lyr.CreateFeature(newFeature)
+			
+			
+			#FEATURE_anno LAYER
+			print("Creating ANNOTATION " + a[1])
+			#if feature is line, 
+			createWKT = ogr.CreateGeometryFromWkt(a[2])
+			#newLabel.SetGeometryDirectly(createWKT)
+			newLabel.SetGeometry(createWKT)
+			newLabel.SetStyleString(a[1])
+			lyr.CreateFeature(newLabel)
+			
+
+			#annotation
+			#OGR Feature Style Strings: http://fwarmerdam.blogspot.com/2009/12/ogr-dxf-driver.html
+			#GDAL - Feature Style Specification: https://gdal.org/ogr_feature_style.html
+			#StackExchange Example: https://gis.stackexchange.com/questions/73406/export-postgis-geometry-point-as-label-text-to-dxf-or-dgn/73461#73461
+			#sql query to create the label
+			
+		newFeature.Destroy()
+		newLabel.Destroy()
+	ds.Destroy()
+	ds = None
+	
+def main():
+	conn = psycopg2.connect(database = 'design_tool', user = 'postgres', host = '10.1.5.10', port = '5432')#password = 'chcGIS01!02#')
+	with conn:
+		with conn.cursor() as cur:
+			postgis2cad(cur)
+	
+if __name__ == '__main__':
+	main()

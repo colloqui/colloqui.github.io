@@ -1,0 +1,134 @@
+var lyrTestTiff;
+
+// lyrTestTiff = L.leafletGeotiff('coverages/ccld/MapPlan_Orthomosaic_export_WedJan16150122.tif', [[32.70854,-117.12975],[32.70103,-117.12932]]).addTo(map);
+
+var url = "raster/MapPlan_Orthomosaic_export_WedJan16150122.tif";
+var options;
+//var lyrTestTiff = new L.leafletGeotiff(url, options).addTo(map);
+
+
+objOverlays = {
+	"Test Tiff":lyrTestTiff
+};
+var anno2 = new Anno(
+	[{
+		target: '#showboxImg',
+		content:'This is the Measure tool.',
+		position:'center-bottom',
+		//arrowPosition:'center-top'
+		buttons:[
+			{
+				text:'NEXT',
+				click: function (anno,evt) {
+					anno.switchToChainNext();
+					$(".anno-overlay").addClass("zIndexOverride");
+				}
+			}]
+	},
+	{
+		target: '#showboxLayers',
+		content:'This is the search tool.',
+		position:'center-bottom',
+		buttons:[
+			AnnoButton.BackButton,
+			{
+				text:'THATS IT',
+				click: function(anno,evt) {
+					anno.hide();
+				}
+			}]
+	}
+	]);
+	
+var anno3 = new Anno(
+	[{
+		target: '#ultimatetopdiv',
+		arrowPosition: '',
+		content:'<center>Using the <img src="images/search.png" height="30"></img> tool, search for an address!<br><br>Copy and paste<br><br>500 W 35th St, Chicago, IL 60616, USA<br><br>into the "Search Location:" field and hit ENTER.</center>',
+		position:'center-bottom',
+		autoFocusLastButton: true,
+		//arrowPosition:'center-top'
+		buttons:[
+			{
+				text:'Search!',
+				click: function (anno,evt) {
+					//anno.hide();
+					slideUpUserPanel();
+					pop('popDivSearch');
+					hide('popDivFilter');
+					hide('popDivSelection');
+					//WHEN ADDRESS IS SEARCHED, checkAddress()
+					//$(".anno-overlay").addClass("zIndexOverride");
+					addEventListener('keypress',function (e){
+						var key = e.which || e.keyCode;
+						if (key === 13) {
+							setTimeout(checkAddress, 1000);
+						}
+					});
+				}
+			}]
+	},
+	{
+		target: '#ultimatetopdiv',
+		content:'Good Job! Now that we have found our address, lets get to work!',
+		position:'center-bottom',
+		arrowPosition: '',
+		buttons:[
+			//AnnoButton.BackButton,
+			{
+				text:'Get to Work!',
+				click: function(anno,evt) {
+					hide('popDivSearch');
+					anno.switchToChainNext();
+					$(".anno-overlay").addClass("zIndexOverride");
+				}
+			}
+			]
+	},
+	{
+		target: '#showboxImg',
+		content:'This is the measure tool. Click on it!',
+		position:'center-bottom',
+		buttons:[
+			//AnnoButton.BackButton,
+			{
+				text:'THATS IT',
+				click: function(anno,evt) {
+					anno.hide();
+				}
+			}
+			]
+	}
+	
+	]);
+
+$('#tutorial2').click(function(){
+	anno2.show();
+	$(".anno-overlay").addClass("zIndexOverride");
+});
+
+$('#tutorial3').click(function(){
+	anno3.show();
+	$(".anno-overlay").addClass("zIndexOverride");
+});
+
+
+
+function checkAddress (){
+	var popCont = popupContent.replace("</p>","");
+	var popCont = popCont.replace("<p>","");
+	if (popCont == "500 W 35th St, Chicago, IL 60616, USA"){
+		anno3.switchToChainNext();
+	}
+	else {
+		alert("Try again.");
+	}
+}
+
+
+$('#test').click(function(){
+	anno1.show();
+});
+
+//On search address, check if address matches and congratulate.
+//If not, tell them to try again.
