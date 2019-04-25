@@ -34,7 +34,7 @@ def execute(command): #Points to OSGEO SHELL and executes commands in python win
 
 def ogrCommands(WO): #WORKING 02.28.2019
 
-	#filepath = "\\\CHCCLD01SDEV02\\d$\\GIS_team\\CO\\markWorkspace\\exports\\LLD\\{}_export_{}.gdb".format(WO,date)
+	#filepath = "\\path\\to\\drive\\GIS_team\\CO\\markWorkspace\\exports\\LLD\\{}_export_{}.gdb".format(WO,date)
 	filepath = "C:\\Users\\colloqui\\Desktop\\markWorkspace\\exports\\LLD\\{}_export_{}.gdb".format(WO,date)
 
 	ogrCMDS = [
